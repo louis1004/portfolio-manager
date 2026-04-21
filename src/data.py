@@ -31,10 +31,21 @@ def fetch_stock_list(market: str = MARKET_ALL) -> pd.DataFrame:
         except Exception:
             result = stocks
     except Exception as e:
+        # 디버깅: FDR이 반환한 컬럼 정보 포함
+        debug_info = ""
+        try:
+            import FinanceDataReader as fdr
+            test_df = fdr.StockListing("KRX")
+            debug_info = f" [FDR columns: {list(test_df.columns)}, shape: {test_df.shape}]"
+        except Exception:
+            debug_info = " [FDR 호출 자체 실패]"
+
         try:
             result = _fetch_stock_list_fallback()
         except Exception:
-            raise ValueError(f"종목 리스트를 가져올 수 없습니다. (원인: {e})")
+            raise ValueError(
+                f"종목 리스트를 가져올 수 없습니다. (원인: {e}){debug_info}"
+            )
 
     if market == MARKET_KOSPI:
         result = result[result["Market"] == MARKET_KOSPI]

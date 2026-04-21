@@ -54,7 +54,9 @@ def render_sidebar():
         try:
             stock_list = fetch_stock_list(market)
         except Exception as e:
+            import traceback
             st.sidebar.error(f"종목 리스트를 가져올 수 없습니다: {e}")
+            st.sidebar.code(traceback.format_exc())
             return
 
     # 종목 선택 (코드 - 이름 형식)
