@@ -207,13 +207,13 @@ def optimize_black_litterman(
 ) -> OptimizationResult:
     """Black-Litterman 포트폴리오를 구한다.
 
-    주가를 시가총액 근사치로 사용하는 기본 버전입니다.
-    실제 시가총액 데이터와 차이가 있을 수 있습니다.
+    실제 시가총액 데이터를 사용하여 시장 균형 수익률을 계산한다.
     """
+    from src.data import fetch_market_caps
+
     cov = risk_models.CovarianceShrinkage(prices).ledoit_wolf()
 
-    market_caps = prices.iloc[-1]
-    mcaps = {col: float(market_caps[col]) for col in prices.columns}
+    mcaps = fetch_market_caps(tuple(prices.columns))
 
     bl = BlackLittermanModel(cov, pi="market", market_caps=mcaps, risk_free_rate=risk_free_rate)
     bl_returns = bl.bl_returns()

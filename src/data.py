@@ -341,6 +341,29 @@ def _fetch_single_dividend(ticker: str) -> tuple[float, float]:
     return 0.0, 0.0
 
 
+def fetch_market_caps(tickers: tuple[str, ...]) -> dict[str, float]:
+    """종목별 시가총액을 CSV에서 가져온다.
+
+    Args:
+        tickers: 종목 코드 튜플
+
+    Returns:
+        종목코드 -> 시가총액 딕셔너리
+    """
+    stock_list = _load_bundled_stock_list()
+
+    if "Marcap" not in stock_list.columns:
+        return {ticker: 1.0 for ticker in tickers}
+
+    marcap_map = dict(zip(stock_list["Code"], stock_list["Marcap"]))
+    result = {}
+    for ticker in tickers:
+        cap = marcap_map.get(ticker, 0)
+        result[ticker] = float(cap) if cap and cap > 0 else 1.0
+
+    return result
+
+
 def validate_tickers(tickers: tuple[str, ...]) -> tuple[bool, str]:
     """선택된 종목 수가 유효한지 검증한다."""
     if len(tickers) < MIN_STOCK_COUNT:
