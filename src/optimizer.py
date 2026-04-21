@@ -248,4 +248,19 @@ def run_optimization(
     func = _STRATEGY_MAP.get(strategy)
     if func is None:
         raise ValueError(f"알 수 없는 전략: {strategy}")
-    return func(prices, risk_free_rate)
+
+    try:
+        return func(prices, risk_free_rate)
+    except Exception as e:
+        error_msg = str(e).lower()
+        if "infeasible" in error_msg or "solver" in error_msg:
+            # 제약 조건 불가능 시 동일 비중으로 폴백
+            result = optimize_equal_weight(prices, risk_free_rate)
+            return OptimizationResult(
+                weights=result.weights,
+                expected_return=result.expected_return,
+                volatility=result.volatility,
+                sharpe_ratio=result.sharpe_ratio,
+                strategy=f"{strategy} → 동일 비중 (최적화 불가)",
+            )
+        raise

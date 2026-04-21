@@ -35,6 +35,15 @@ def main():
     st.set_page_config(page_title=APP_TITLE, page_icon="📊", layout="wide")
     st.title(f"📊 {APP_TITLE}")
 
+    # Select all 버튼 숨기기
+    st.markdown("""
+        <style>
+        button[kind="selectAll"] { display: none !important; }
+        div[data-testid="stMultiSelect"] button[kind="secondary"] { display: none !important; }
+        span[data-testid="stMultiSelectDropdownSelectAll"] { display: none !important; }
+        </style>
+    """, unsafe_allow_html=True)
+
     render_sidebar()
 
     if "optimization_result" in st.session_state:
