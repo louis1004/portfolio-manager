@@ -38,9 +38,16 @@ def main():
     # Select all 버튼 숨기기
     st.markdown("""
         <style>
-        button[kind="selectAll"] { display: none !important; }
-        div[data-testid="stMultiSelect"] button[kind="secondary"] { display: none !important; }
-        span[data-testid="stMultiSelectDropdownSelectAll"] { display: none !important; }
+        [data-testid="stMultiSelect"] [role="option"]:has(span:empty),
+        [data-testid="stMultiSelect"] div[data-testid*="SelectAll"],
+        [data-testid="stMultiSelect"] button[kind="selectAll"],
+        [data-testid="stMultiSelect"] span[data-testid*="SelectAll"],
+        div[class*="multiselect"] button:has(svg),
+        li[role="option"][aria-label*="Select all"],
+        li[role="option"][aria-label*="select all"],
+        div[data-baseweb="popover"] li:first-child:has(input[type="checkbox"]) {
+            display: none !important;
+        }
         </style>
     """, unsafe_allow_html=True)
 
