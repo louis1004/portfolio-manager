@@ -21,26 +21,20 @@ def fetch_stock_list(market: str = MARKET_ALL) -> pd.DataFrame:
 
         # 주식 종목
         df = fdr.StockListing("KRX")
-        code_col = "Code" if "Code" in df.columns else "Symbol"
-        market_col = "Market" if "Market" in df.columns else None
-        stocks = pd.DataFrame({
-            "Code": df[code_col].astype(str).str.zfill(6),
-            "Name": df["Name"],
-            "Market": df[market_col] if market_col else MARKET_KOSPI,
-        })
+        stocks = _normalize_stock_df(df)
 
         # ETF 종목
-        etf_df = fdr.StockListing("ETF/KR")
-        etf_code_col = "Code" if "Code" in etf_df.columns else "Symbol"
-        etfs = pd.DataFrame({
-            "Code": etf_df[etf_code_col].astype(str).str.zfill(6),
-            "Name": etf_df["Name"],
-            "Market": MARKET_ETF,
-        })
-
-        result = pd.concat([stocks, etfs], ignore_index=True)
-    except Exception:
-        result = _fetch_stock_list_fallback()
+        try:
+            etf_df = fdr.StockListing("ETF/KR")
+            etfs = _normalize_etf_df(etf_df)
+            result = pd.concat([stocks, etfs], ignore_index=True)
+        except Exception:
+            result = stocks
+    except Exception as e:
+        try:
+            result = _fetch_stock_list_fallback()
+        except Exception:
+            raise ValueError(f"종목 리스트를 가져올 수 없습니다. (원인: {e})")
 
     if market == MARKET_KOSPI:
         result = result[result["Market"] == MARKET_KOSPI]
@@ -50,6 +44,51 @@ def fetch_stock_list(market: str = MARKET_ALL) -> pd.DataFrame:
         result = result[result["Market"] == MARKET_ETF]
 
     return result.sort_values("Name").reset_index(drop=True)
+
+
+def _find_column(df: pd.DataFrame, candidates: list[str], default: str = "") -> str | None:
+    """DataFrame에서 후보 컬럼명 중 존재하는 첫 번째를 반환한다."""
+    for col in candidates:
+        if col in df.columns:
+            return col
+    return None
+
+
+def _normalize_stock_df(df: pd.DataFrame) -> pd.DataFrame:
+    """FDR StockListing 결과를 Code/Name/Market 형식으로 정규화한다."""
+    code_col = _find_column(df, ["Code", "Symbol", "ISU_SRT_CD", "종목코드"])
+    name_col = _find_column(df, ["Name", "ISU_ABBRV", "종목명"])
+    market_col = _find_column(df, ["Market", "MKT_NM", "시장구분"])
+
+    if code_col is None or name_col is None:
+        raise ValueError(f"종목 데이터 컬럼을 찾을 수 없습니다. 컬럼: {list(df.columns)}")
+
+    result = pd.DataFrame({
+        "Code": df[code_col].astype(str).str.zfill(6),
+        "Name": df[name_col],
+    })
+
+    if market_col:
+        result["Market"] = df[market_col]
+    else:
+        result["Market"] = MARKET_KOSPI
+
+    return result
+
+
+def _normalize_etf_df(df: pd.DataFrame) -> pd.DataFrame:
+    """FDR ETF StockListing 결과를 Code/Name/Market 형식으로 정규화한다."""
+    code_col = _find_column(df, ["Code", "Symbol", "ISU_SRT_CD", "종목코드"])
+    name_col = _find_column(df, ["Name", "ISU_ABBRV", "종목명"])
+
+    if code_col is None or name_col is None:
+        raise ValueError(f"ETF 데이터 컬럼을 찾을 수 없습니다. 컬럼: {list(df.columns)}")
+
+    return pd.DataFrame({
+        "Code": df[code_col].astype(str).str.zfill(6),
+        "Name": df[name_col],
+        "Market": MARKET_ETF,
+    })
 
 
 def _fetch_stock_list_fallback() -> pd.DataFrame:
