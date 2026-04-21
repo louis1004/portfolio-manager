@@ -35,21 +35,6 @@ def main():
     st.set_page_config(page_title=APP_TITLE, page_icon="📊", layout="wide")
     st.title(f"📊 {APP_TITLE}")
 
-    # Select all 옵션 숨기기
-    st.markdown("""
-        <script>
-        const observer = new MutationObserver(() => {
-            document.querySelectorAll('li[role="option"]').forEach(el => {
-                if (el.textContent.trim() === 'Select all' ||
-                    el.textContent.trim().match(/^Select \\d+ matches$/)) {
-                    el.style.display = 'none';
-                }
-            });
-        });
-        observer.observe(document.body, { childList: true, subtree: true });
-        </script>
-    """, unsafe_allow_html=True)
-
     render_sidebar()
 
     if "optimization_result" in st.session_state:
