@@ -11,95 +11,125 @@ def fetch_stock_list(market: str = MARKET_ALL) -> pd.DataFrame:
     """한국 주식 종목 리스트를 가져온다.
 
     Args:
-        market: "KOSPI", "KOSDAQ", 또는 "전체"
+        market: "KOSPI", "KOSDAQ", "ETF", 또는 "전체"
 
     Returns:
         DataFrame with columns: [Code, Name, Market]
     """
+    errors = []
+    result = _empty_stock_df()
+
+    # 1차: FinanceDataReader
     try:
-        import FinanceDataReader as fdr
-
-        # 주식 종목
-        df = fdr.StockListing("KRX")
-        stocks = _normalize_stock_df(df)
-
-        # ETF 종목
-        try:
-            etf_df = fdr.StockListing("ETF/KR")
-            etfs = _normalize_etf_df(etf_df)
-            result = pd.concat([stocks, etfs], ignore_index=True)
-        except Exception:
-            result = stocks
+        result = _fetch_via_fdr()
     except Exception as e:
-        # 디버깅: FDR이 반환한 컬럼 정보 포함
-        debug_info = ""
-        try:
-            import FinanceDataReader as fdr
-            test_df = fdr.StockListing("KRX")
-            debug_info = f" [FDR columns: {list(test_df.columns)}, shape: {test_df.shape}]"
-        except Exception:
-            debug_info = " [FDR 호출 자체 실패]"
+        errors.append(f"FDR: {e}")
 
+    # 2차: pykrx 폴백
+    if result.empty:
         try:
             result = _fetch_stock_list_fallback()
-        except Exception:
-            raise ValueError(
-                f"종목 리스트를 가져올 수 없습니다. (원인: {e}){debug_info}"
-            )
+        except Exception as e:
+            errors.append(f"pykrx: {e}")
 
-    if market == MARKET_KOSPI:
-        result = result[result["Market"] == MARKET_KOSPI]
-    elif market == MARKET_KOSDAQ:
-        result = result[result["Market"] == MARKET_KOSDAQ]
-    elif market == MARKET_ETF:
-        result = result[result["Market"] == MARKET_ETF]
+    # 둘 다 실패
+    if result.empty:
+        raise ValueError(
+            f"종목 리스트를 가져올 수 없습니다. {'; '.join(errors)}"
+        )
+
+    # 시장 필터
+    if market != MARKET_ALL:
+        filtered = result[result["Market"] == market]
+        if not filtered.empty:
+            result = filtered
 
     return result.sort_values("Name").reset_index(drop=True)
 
 
-def _find_column(df: pd.DataFrame, candidates: list[str], default: str = "") -> str | None:
-    """DataFrame에서 후보 컬럼명 중 존재하는 첫 번째를 반환한다."""
-    for col in candidates:
-        if col in df.columns:
-            return col
-    return None
+def _empty_stock_df() -> pd.DataFrame:
+    """빈 종목 DataFrame을 생성한다."""
+    return pd.DataFrame(columns=["Code", "Name", "Market"])
 
 
-def _normalize_stock_df(df: pd.DataFrame) -> pd.DataFrame:
-    """FDR StockListing 결과를 Code/Name/Market 형식으로 정규화한다."""
-    code_col = _find_column(df, ["Code", "Symbol", "ISU_SRT_CD", "종목코드"])
-    name_col = _find_column(df, ["Name", "ISU_ABBRV", "종목명"])
-    market_col = _find_column(df, ["Market", "MKT_NM", "시장구분"])
+def _fetch_via_fdr() -> pd.DataFrame:
+    """FinanceDataReader로 종목 리스트를 가져온다."""
+    import FinanceDataReader as fdr
+
+    parts = []
+
+    # 주식: 여러 listing 방식 시도
+    for listing_type in ["KRX", "KOSPI", "KOSDAQ"]:
+        try:
+            df = fdr.StockListing(listing_type)
+            if df is not None and not df.empty:
+                normalized = _normalize_any_df(df, listing_type)
+                if not normalized.empty:
+                    parts.append(normalized)
+                    if listing_type == "KRX":
+                        break  # KRX로 전체를 가져왔으면 개별 시장은 불필요
+        except Exception:
+            continue
+
+    # ETF
+    try:
+        etf_df = fdr.StockListing("ETF/KR")
+        if etf_df is not None and not etf_df.empty:
+            etfs = _normalize_any_df(etf_df, MARKET_ETF)
+            if not etfs.empty:
+                parts.append(etfs)
+    except Exception:
+        pass
+
+    if not parts:
+        raise ValueError("FDR에서 데이터를 가져올 수 없습니다.")
+
+    return pd.concat(parts, ignore_index=True)
+
+
+def _normalize_any_df(df: pd.DataFrame, source: str) -> pd.DataFrame:
+    """어떤 형태의 DataFrame이든 Code/Name/Market으로 정규화한다."""
+    # 코드 컬럼 찾기
+    code_col = None
+    for candidate in ["Code", "Symbol", "ISU_SRT_CD", "종목코드", "Ticker"]:
+        if candidate in df.columns:
+            code_col = candidate
+            break
+
+    # 이름 컬럼 찾기
+    name_col = None
+    for candidate in ["Name", "ISU_ABBRV", "종목명", "종목"]:
+        if candidate in df.columns:
+            name_col = candidate
+            break
 
     if code_col is None or name_col is None:
-        raise ValueError(f"종목 데이터 컬럼을 찾을 수 없습니다. 컬럼: {list(df.columns)}")
+        return _empty_stock_df()
+
+    # 시장 컬럼 찾기
+    market_col = None
+    for candidate in ["Market", "MKT_NM", "시장구분"]:
+        if candidate in df.columns:
+            market_col = candidate
+            break
 
     result = pd.DataFrame({
         "Code": df[code_col].astype(str).str.zfill(6),
-        "Name": df[name_col],
+        "Name": df[name_col].astype(str),
     })
 
-    if market_col:
-        result["Market"] = df[market_col]
+    if source == MARKET_ETF:
+        result["Market"] = MARKET_ETF
+    elif market_col:
+        result["Market"] = df[market_col].astype(str)
+    elif source in (MARKET_KOSPI, "KOSPI"):
+        result["Market"] = MARKET_KOSPI
+    elif source in (MARKET_KOSDAQ, "KOSDAQ"):
+        result["Market"] = MARKET_KOSDAQ
     else:
         result["Market"] = MARKET_KOSPI
 
     return result
-
-
-def _normalize_etf_df(df: pd.DataFrame) -> pd.DataFrame:
-    """FDR ETF StockListing 결과를 Code/Name/Market 형식으로 정규화한다."""
-    code_col = _find_column(df, ["Code", "Symbol", "ISU_SRT_CD", "종목코드"])
-    name_col = _find_column(df, ["Name", "ISU_ABBRV", "종목명"])
-
-    if code_col is None or name_col is None:
-        raise ValueError(f"ETF 데이터 컬럼을 찾을 수 없습니다. 컬럼: {list(df.columns)}")
-
-    return pd.DataFrame({
-        "Code": df[code_col].astype(str).str.zfill(6),
-        "Name": df[name_col],
-        "Market": MARKET_ETF,
-    })
 
 
 def _fetch_stock_list_fallback() -> pd.DataFrame:
@@ -108,16 +138,26 @@ def _fetch_stock_list_fallback() -> pd.DataFrame:
     from datetime import datetime
 
     today = datetime.now().strftime("%Y%m%d")
-    kospi_tickers = stock.get_market_ticker_list(today, market="KOSPI")
-    kosdaq_tickers = stock.get_market_ticker_list(today, market="KOSDAQ")
-
     rows = []
-    for ticker in kospi_tickers:
-        name = stock.get_market_ticker_name(ticker)
-        rows.append({"Code": ticker, "Name": name, "Market": MARKET_KOSPI})
-    for ticker in kosdaq_tickers:
-        name = stock.get_market_ticker_name(ticker)
-        rows.append({"Code": ticker, "Name": name, "Market": MARKET_KOSDAQ})
+
+    try:
+        kospi_tickers = stock.get_market_ticker_list(today, market="KOSPI")
+        for ticker in kospi_tickers:
+            name = stock.get_market_ticker_name(ticker)
+            rows.append({"Code": ticker, "Name": name, "Market": MARKET_KOSPI})
+    except Exception:
+        pass
+
+    try:
+        kosdaq_tickers = stock.get_market_ticker_list(today, market="KOSDAQ")
+        for ticker in kosdaq_tickers:
+            name = stock.get_market_ticker_name(ticker)
+            rows.append({"Code": ticker, "Name": name, "Market": MARKET_KOSDAQ})
+    except Exception:
+        pass
+
+    if not rows:
+        raise ValueError("pykrx에서도 데이터를 가져올 수 없습니다.")
 
     return pd.DataFrame(rows)
 
