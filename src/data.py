@@ -21,16 +21,19 @@ def fetch_stock_list(market: str = MARKET_ALL) -> pd.DataFrame:
 
         # 주식 종목
         df = fdr.StockListing("KRX")
+        code_col = "Code" if "Code" in df.columns else "Symbol"
+        market_col = "Market" if "Market" in df.columns else None
         stocks = pd.DataFrame({
-            "Code": df["Code"].astype(str).str.zfill(6),
+            "Code": df[code_col].astype(str).str.zfill(6),
             "Name": df["Name"],
-            "Market": df["Market"],
+            "Market": df[market_col] if market_col else MARKET_KOSPI,
         })
 
         # ETF 종목
         etf_df = fdr.StockListing("ETF/KR")
+        etf_code_col = "Code" if "Code" in etf_df.columns else "Symbol"
         etfs = pd.DataFrame({
-            "Code": etf_df["Code"].astype(str).str.zfill(6),
+            "Code": etf_df[etf_code_col].astype(str).str.zfill(6),
             "Name": etf_df["Name"],
             "Market": MARKET_ETF,
         })
@@ -181,7 +184,7 @@ def fetch_dividend_data(
     start_date: str,
     end_date: str,
 ) -> pd.DataFrame:
-    """종목별 배당 정보를 가져온다.
+    """종목별 배당 정보를 yfinance에서 가져온다.
 
     Args:
         tickers: 종목 코드 튜플
@@ -189,33 +192,34 @@ def fetch_dividend_data(
         end_date: 종료일 (YYYY-MM-DD)
 
     Returns:
-        DataFrame with columns: [Code, Name, DividendYield, Dividend]
+        DataFrame with columns: [Code, DividendYield, Dividend]
         - DividendYield: 배당 수익률 (%)
         - Dividend: 주당 배당금 (원)
     """
-    from pykrx import stock
+    import yfinance as yf
 
-    start = start_date.replace("-", "")
-    end = end_date.replace("-", "")
     rows = []
-
     for ticker in tickers:
         try:
-            df = stock.get_market_dividend_yield(start, end, ticker)
-            if df is not None and not df.empty:
-                # 가장 최근 배당 데이터 사용
-                last_valid = df[df["배당수익률"] > 0]
-                if not last_valid.empty:
-                    latest = last_valid.iloc[-1]
-                    rows.append({
-                        "Code": ticker,
-                        "DividendYield": float(latest["배당수익률"]),
-                        "Dividend": float(latest["주당배당금"]),
-                    })
-                else:
-                    rows.append({"Code": ticker, "DividendYield": 0.0, "Dividend": 0.0})
-            else:
-                rows.append({"Code": ticker, "DividendYield": 0.0, "Dividend": 0.0})
+            # 한국 주식: .KS(KOSPI) 또는 .KQ(KOSDAQ) 접미사
+            yf_ticker = yf.Ticker(f"{ticker}.KS")
+            info = yf_ticker.info
+
+            div_yield = info.get("dividendYield", 0) or 0
+            div_rate = info.get("dividendRate", 0) or 0
+
+            # dividendYield가 없으면 .KQ로 재시도
+            if div_yield == 0 and div_rate == 0:
+                yf_ticker = yf.Ticker(f"{ticker}.KQ")
+                info = yf_ticker.info
+                div_yield = info.get("dividendYield", 0) or 0
+                div_rate = info.get("dividendRate", 0) or 0
+
+            rows.append({
+                "Code": ticker,
+                "DividendYield": float(div_yield),
+                "Dividend": float(div_rate),
+            })
         except Exception:
             rows.append({"Code": ticker, "DividendYield": 0.0, "Dividend": 0.0})
 
