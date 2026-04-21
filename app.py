@@ -35,13 +35,10 @@ def main():
     st.set_page_config(page_title=APP_TITLE, page_icon="📊", layout="wide")
     st.title(f"📊 {APP_TITLE}")
 
-    # Select all / Select matches 옵션 숨기기
+    # Select all 옵션 숨기기
     st.markdown("""
         <style>
-        li[role="option"][aria-label="Select all"],
-        li[role="option"][aria-label*="Select"][aria-label*="matches"] {
-            display: none !important;
-        }
+        .e1bi6yfx1 { display: none !important; }
         </style>
     """, unsafe_allow_html=True)
 
