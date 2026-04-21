@@ -1,0 +1,9 @@
+streamlit>=1.30.0
+finance-datareader>=0.9.60
+pykrx>=1.0.45
+PyPortfolioOpt>=1.5.5
+quantstats>=0.0.62
+plotly>=5.18.0
+pandas>=2.1.0
+numpy>=1.26.0
+scipy>=1.11.0

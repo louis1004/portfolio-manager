@@ -1,0 +1,42 @@
+"""앱 전체에서 사용되는 상수 정의."""
+
+from datetime import datetime, timedelta
+
+# 기본 설정
+DEFAULT_START_DATE = (datetime.now() - timedelta(days=365 * 3)).strftime("%Y-%m-%d")
+DEFAULT_RISK_FREE_RATE = 0.035
+TRADING_DAYS_PER_YEAR = 252
+MIN_STOCK_COUNT = 2
+MAX_STOCK_COUNT = 20
+MIN_DATA_DAYS = 30
+MIN_WEIGHT_PER_ASSET = 0.05  # 종목당 최소 비중 5%
+
+# 최적화 전략
+STRATEGY_MAX_SHARPE = "최대 샤프 비율"
+STRATEGY_MIN_VOLATILITY = "최소 변동성"
+STRATEGY_RISK_PARITY = "리스크 패리티"
+STRATEGY_EQUAL_WEIGHT = "동일 비중"
+STRATEGY_HRP = "HRP (계층적 위험 배분)"
+STRATEGY_BLACK_LITTERMAN = "Black-Litterman (시장 균형)"
+OPTIMIZATION_STRATEGIES = (
+    STRATEGY_MAX_SHARPE,
+    STRATEGY_MIN_VOLATILITY,
+    STRATEGY_RISK_PARITY,
+    STRATEGY_EQUAL_WEIGHT,
+    STRATEGY_HRP,
+    STRATEGY_BLACK_LITTERMAN,
+)
+
+# 리밸런싱
+DEFAULT_REBALANCE_BAND = 0.05
+
+# UI
+APP_TITLE = "한국 주식 포트폴리오 매니저"
+SIDEBAR_TITLE = "포트폴리오 설정"
+
+# 시장
+MARKET_KOSPI = "KOSPI"
+MARKET_KOSDAQ = "KOSDAQ"
+MARKET_ETF = "ETF"
+MARKET_ALL = "전체"
+MARKET_OPTIONS = (MARKET_ALL, MARKET_KOSPI, MARKET_KOSDAQ, MARKET_ETF)
