@@ -15,7 +15,6 @@ from scipy.optimize import minimize
 
 from src.constants import (
     DEFAULT_RISK_FREE_RATE,
-    MIN_WEIGHT_PER_ASSET,
     STRATEGY_BLACK_LITTERMAN,
     STRATEGY_EQUAL_WEIGHT,
     STRATEGY_HRP,
@@ -58,7 +57,7 @@ def optimize_max_sharpe(
             f"다른 종목을 선택하거나 분석 기간을 변경해주세요."
         )
 
-    ef = EfficientFrontier(mu, S, weight_bounds=(MIN_WEIGHT_PER_ASSET, 1.0))
+    ef = EfficientFrontier(mu, S, weight_bounds=(0, 1))
     ef.max_sharpe(risk_free_rate=risk_free_rate)
     weights = ef.clean_weights()
     perf = ef.portfolio_performance(risk_free_rate=risk_free_rate)
@@ -80,7 +79,7 @@ def optimize_min_volatility(
     mu = expected_returns.mean_historical_return(prices)
     S = risk_models.CovarianceShrinkage(prices).ledoit_wolf()
 
-    ef = EfficientFrontier(mu, S, weight_bounds=(MIN_WEIGHT_PER_ASSET, 1.0))
+    ef = EfficientFrontier(mu, S, weight_bounds=(0, 1))
     ef.min_volatility()
     weights = ef.clean_weights()
     perf = ef.portfolio_performance(risk_free_rate=risk_free_rate)
@@ -211,7 +210,7 @@ def optimize_black_litterman(
     bl = BlackLittermanModel(S, pi="market", market_caps=mcaps, risk_free_rate=risk_free_rate)
     bl_returns = bl.bl_returns()
 
-    ef = EfficientFrontier(bl_returns, S, weight_bounds=(MIN_WEIGHT_PER_ASSET, 1.0))
+    ef = EfficientFrontier(bl_returns, S, weight_bounds=(0, 1))
     ef.max_sharpe(risk_free_rate=risk_free_rate)
     weights = ef.clean_weights()
     perf = ef.portfolio_performance(risk_free_rate=risk_free_rate)
@@ -248,19 +247,4 @@ def run_optimization(
     func = _STRATEGY_MAP.get(strategy)
     if func is None:
         raise ValueError(f"알 수 없는 전략: {strategy}")
-
-    try:
-        return func(prices, risk_free_rate)
-    except Exception as e:
-        error_msg = str(e).lower()
-        if "infeasible" in error_msg or "solver" in error_msg:
-            # 제약 조건 불가능 시 동일 비중으로 폴백
-            result = optimize_equal_weight(prices, risk_free_rate)
-            return OptimizationResult(
-                weights=result.weights,
-                expected_return=result.expected_return,
-                volatility=result.volatility,
-                sharpe_ratio=result.sharpe_ratio,
-                strategy=f"{strategy} → 동일 비중 (최적화 불가)",
-            )
-        raise
+    return func(prices, risk_free_rate)
