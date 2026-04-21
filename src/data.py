@@ -16,27 +16,27 @@ def fetch_stock_list(market: str = MARKET_ALL) -> pd.DataFrame:
     Returns:
         DataFrame with columns: [Code, Name, Market]
     """
-    errors = []
-    result = _empty_stock_df()
+    # 1차: 번들 CSV (항상 동작)
+    result = _load_bundled_stock_list()
 
-    # 1차: FinanceDataReader
-    try:
-        result = _fetch_via_fdr()
-    except Exception as e:
-        errors.append(f"FDR: {e}")
-
-    # 2차: pykrx 폴백
+    # CSV가 없으면 온라인 시도
     if result.empty:
+        errors = []
         try:
-            result = _fetch_stock_list_fallback()
+            result = _fetch_via_fdr()
         except Exception as e:
-            errors.append(f"pykrx: {e}")
+            errors.append(f"FDR: {e}")
 
-    # 둘 다 실패
-    if result.empty:
-        raise ValueError(
-            f"종목 리스트를 가져올 수 없습니다. {'; '.join(errors)}"
-        )
+        if result.empty:
+            try:
+                result = _fetch_stock_list_fallback()
+            except Exception as e:
+                errors.append(f"pykrx: {e}")
+
+        if result.empty:
+            raise ValueError(
+                f"종목 리스트를 가져올 수 없습니다. {'; '.join(errors)}"
+            )
 
     # 시장 필터
     if market != MARKET_ALL:
@@ -50,6 +50,24 @@ def fetch_stock_list(market: str = MARKET_ALL) -> pd.DataFrame:
 def _empty_stock_df() -> pd.DataFrame:
     """빈 종목 DataFrame을 생성한다."""
     return pd.DataFrame(columns=["Code", "Name", "Market"])
+
+
+def _load_bundled_stock_list() -> pd.DataFrame:
+    """번들된 CSV 파일에서 종목 리스트를 로드한다."""
+    import os
+
+    csv_path = os.path.join(os.path.dirname(__file__), "..", "data", "stock_list.csv")
+    csv_path = os.path.abspath(csv_path)
+
+    if not os.path.exists(csv_path):
+        return _empty_stock_df()
+
+    try:
+        df = pd.read_csv(csv_path, dtype={"Code": str, "Name": str, "Market": str})
+        df["Code"] = df["Code"].str.zfill(6)
+        return df
+    except Exception:
+        return _empty_stock_df()
 
 
 def _fetch_via_fdr() -> pd.DataFrame:
