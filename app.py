@@ -35,17 +35,11 @@ def main():
     st.set_page_config(page_title=APP_TITLE, page_icon="📊", layout="wide")
     st.title(f"📊 {APP_TITLE}")
 
-    # Select all 버튼 숨기기
+    # Select all / Select matches 옵션 숨기기
     st.markdown("""
         <style>
-        [data-testid="stMultiSelect"] [role="option"]:has(span:empty),
-        [data-testid="stMultiSelect"] div[data-testid*="SelectAll"],
-        [data-testid="stMultiSelect"] button[kind="selectAll"],
-        [data-testid="stMultiSelect"] span[data-testid*="SelectAll"],
-        div[class*="multiselect"] button:has(svg),
-        li[role="option"][aria-label*="Select all"],
-        li[role="option"][aria-label*="select all"],
-        div[data-baseweb="popover"] li:first-child:has(input[type="checkbox"]) {
+        li[role="option"][aria-label="Select all"],
+        li[role="option"][aria-label*="Select"][aria-label*="matches"] {
             display: none !important;
         }
         </style>
