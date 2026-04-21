@@ -68,6 +68,7 @@ def render_sidebar():
         "종목 선택 (2~20개)",
         options=list(stock_options.keys()),
         default=[],
+        max_selections=20,
     )
     selected_tickers = tuple(stock_options[label] for label in selected_labels)
 
