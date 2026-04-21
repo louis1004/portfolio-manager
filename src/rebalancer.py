@@ -2,7 +2,6 @@
 
 from dataclasses import dataclass
 
-import numpy as np
 import pandas as pd
 
 from src.constants import DEFAULT_REBALANCE_BAND
@@ -24,15 +23,7 @@ def calculate_current_weights(
     prices: pd.DataFrame,
     initial_weights: dict[str, float],
 ) -> dict[str, float]:
-    """초기 비중과 가격 변동을 반영한 현재 비중을 계산한다.
-
-    Args:
-        prices: 종가 DataFrame (최소 2행 필요)
-        initial_weights: 초기 목표 비중
-
-    Returns:
-        현재 비중 딕셔너리
-    """
+    """초기 비중과 가격 변동을 반영한 현재 비중을 계산한다."""
     if len(prices) < 2:
         return dict(initial_weights)
 
@@ -58,17 +49,7 @@ def check_rebalance_needed(
     band: float = DEFAULT_REBALANCE_BAND,
     ticker_name_map: dict[str, str] | None = None,
 ) -> tuple[bool, list[RebalanceAlert]]:
-    """리밸런싱이 필요한지 확인하고 알림 목록을 생성한다.
-
-    Args:
-        target_weights: 목표 비중
-        current_weights: 현재 비중
-        band: 허용 편차 (기본 5%)
-        ticker_name_map: 종목코드 -> 종목명 매핑
-
-    Returns:
-        (needs_rebalance, alerts) 튜플
-    """
+    """리밸런싱이 필요한지 확인하고 알림 목록을 생성한다."""
     name_map = ticker_name_map or {}
     alerts = []
 
@@ -89,19 +70,3 @@ def check_rebalance_needed(
 
     alerts_sorted = sorted(alerts, key=lambda a: a.deviation, reverse=True)
     return len(alerts_sorted) > 0, alerts_sorted
-
-
-def calculate_rebalance_trades(
-    target_weights: dict[str, float],
-    current_weights: dict[str, float],
-    portfolio_value: float,
-) -> dict[str, float]:
-    """리밸런싱에 필요한 매매 금액을 계산한다.
-
-    Returns:
-        종목코드 -> 매매금액 (양수=매수, 음수=매도)
-    """
-    return {
-        ticker: portfolio_value * (target_weights.get(ticker, 0.0) - current_weights.get(ticker, 0.0))
-        for ticker in set(target_weights) | set(current_weights)
-    }

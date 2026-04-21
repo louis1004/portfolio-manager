@@ -3,7 +3,15 @@
 import pandas as pd
 import streamlit as st
 
-from src.constants import MARKET_ALL, MARKET_ETF, MARKET_KOSDAQ, MARKET_KOSPI, MIN_DATA_DAYS
+from src.constants import (
+    MARKET_ALL,
+    MARKET_ETF,
+    MARKET_KOSDAQ,
+    MARKET_KOSPI,
+    MAX_STOCK_COUNT,
+    MIN_DATA_DAYS,
+    MIN_STOCK_COUNT,
+)
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
@@ -266,43 +274,17 @@ def _fetch_single_ticker(
     return None
 
 
-def search_stocks(query: str, stock_list: pd.DataFrame) -> pd.DataFrame:
-    """종목명 또는 코드로 종목을 검색한다.
-
-    Args:
-        query: 검색어
-        stock_list: fetch_stock_list의 결과
-
-    Returns:
-        매칭된 종목들의 DataFrame (새 객체)
-    """
-    if not query.strip():
-        return stock_list.copy()
-
-    query_lower = query.strip().lower()
-    name_match = stock_list["Name"].str.lower().str.contains(query_lower, na=False)
-    code_match = stock_list["Code"].str.startswith(query.strip())
-
-    return stock_list[name_match | code_match].reset_index(drop=True)
-
-
 @st.cache_data(ttl=3600, show_spinner=False)
-def fetch_dividend_data(
-    tickers: tuple[str, ...],
-    start_date: str,
-    end_date: str,
-) -> pd.DataFrame:
-    """종목별 배당 정보를 yfinance에서 가져온다.
+def fetch_dividend_data(tickers: tuple[str, ...]) -> pd.DataFrame:
+    """종목별 최신 배당 정보를 yfinance에서 가져온다.
 
     Args:
         tickers: 종목 코드 튜플
-        start_date: 시작일 (YYYY-MM-DD)
-        end_date: 종료일 (YYYY-MM-DD)
 
     Returns:
         DataFrame with columns: [Code, DividendYield, Dividend]
-        - DividendYield: 배당 수익률 (%)
-        - Dividend: 주당 배당금 (원)
+        - DividendYield: 배당 수익률 (소수, 예: 0.035 = 3.5%)
+        - Dividend: 연간 주당 배당금 (원)
     """
     rows = []
     for ticker in tickers:
@@ -361,8 +343,6 @@ def _fetch_single_dividend(ticker: str) -> tuple[float, float]:
 
 def validate_tickers(tickers: tuple[str, ...]) -> tuple[bool, str]:
     """선택된 종목 수가 유효한지 검증한다."""
-    from src.constants import MAX_STOCK_COUNT, MIN_STOCK_COUNT
-
     if len(tickers) < MIN_STOCK_COUNT:
         return False, f"최소 {MIN_STOCK_COUNT}개 종목을 선택해주세요."
     if len(tickers) > MAX_STOCK_COUNT:

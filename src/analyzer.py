@@ -119,19 +119,20 @@ def generate_quantstats_report(
     Returns:
         HTML 문자열 또는 None (실패 시)
     """
-    try:
-        import tempfile
-        import os
+    import os
+    import tempfile
 
+    filepath = None
+    try:
         with tempfile.NamedTemporaryFile(suffix=".html", delete=False) as f:
             filepath = f.name
 
         qs.reports.html(returns, output=filepath, title=title)
 
         with open(filepath, "r", encoding="utf-8") as f:
-            html_content = f.read()
-
-        os.unlink(filepath)
-        return html_content
+            return f.read()
     except Exception:
         return None
+    finally:
+        if filepath and os.path.exists(filepath):
+            os.unlink(filepath)

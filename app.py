@@ -15,7 +15,6 @@ from src.constants import (
 from src.data import fetch_dividend_data, fetch_price_data, fetch_stock_list, validate_tickers
 from src.optimizer import run_optimization
 from src.analyzer import (
-    calculate_cumulative_returns,
     calculate_monthly_returns,
     calculate_performance_metrics,
     calculate_portfolio_returns,
@@ -54,9 +53,7 @@ def render_sidebar():
         try:
             stock_list = fetch_stock_list(market)
         except Exception as e:
-            import traceback
             st.sidebar.error(f"종목 리스트를 가져올 수 없습니다: {e}")
-            st.sidebar.code(traceback.format_exc())
             return
 
     # 종목 선택 (코드 - 이름 형식)
@@ -144,11 +141,7 @@ def render_sidebar():
                 current_weights = calculate_current_weights(prices, result.weights)
 
                 # 배당 데이터 수집
-                dividend_data = fetch_dividend_data(
-                    selected_tickers,
-                    str(start_date),
-                    str(end_date),
-                )
+                dividend_data = fetch_dividend_data(selected_tickers)
 
                 st.session_state.optimization_result = result
                 st.session_state.prices = prices

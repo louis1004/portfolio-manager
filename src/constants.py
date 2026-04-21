@@ -1,15 +1,11 @@
 """앱 전체에서 사용되는 상수 정의."""
 
-from datetime import datetime, timedelta
-
 # 기본 설정
-DEFAULT_START_DATE = (datetime.now() - timedelta(days=365 * 3)).strftime("%Y-%m-%d")
 DEFAULT_RISK_FREE_RATE = 0.035
 TRADING_DAYS_PER_YEAR = 252
 MIN_STOCK_COUNT = 2
 MAX_STOCK_COUNT = 20
 MIN_DATA_DAYS = 30
-MIN_WEIGHT_PER_ASSET = 0.05  # 종목당 최소 비중 5%
 
 # 최적화 전략
 STRATEGY_MAX_SHARPE = "최대 샤프 비율"

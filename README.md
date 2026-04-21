@@ -68,7 +68,31 @@ streamlit run app.py
 
 ## 배포
 
-Streamlit Cloud에 배포되어 있습니다.
+[Streamlit Cloud](https://portfolio-manager-louis.streamlit.app/)에 배포되어 있습니다.
+
+## 아키텍처
+
+```
+사용자 브라우저
+    ↓
+Streamlit Cloud (app.py)
+    ↓
+┌─────────────────────────────────────┐
+│ data.py                             │
+│ ├── 종목 리스트: 번들 CSV           │
+│ ├── 주가 데이터: FinanceDataReader  │
+│ │   └── 폴백: pykrx                │
+│ └── 배당 데이터: yfinance           │
+├─────────────────────────────────────┤
+│ optimizer.py                        │
+│ ├── PyPortfolioOpt (4가지 전략)     │
+│ └── scipy (Risk Parity)            │
+├─────────────────────────────────────┤
+│ analyzer.py  → QuantStats          │
+│ rebalancer.py                       │
+│ charts.py    → Plotly              │
+└─────────────────────────────────────┘
+```
 
 ## 사용법
 
