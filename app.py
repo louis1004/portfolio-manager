@@ -37,9 +37,17 @@ def main():
 
     # Select all 옵션 숨기기
     st.markdown("""
-        <style>
-        .e1bi6yfx1 { display: none !important; }
-        </style>
+        <script>
+        const observer = new MutationObserver(() => {
+            document.querySelectorAll('li[role="option"]').forEach(el => {
+                if (el.textContent.trim() === 'Select all' ||
+                    el.textContent.trim().match(/^Select \\d+ matches$/)) {
+                    el.style.display = 'none';
+                }
+            });
+        });
+        observer.observe(document.body, { childList: true, subtree: true });
+        </script>
     """, unsafe_allow_html=True)
 
     render_sidebar()
