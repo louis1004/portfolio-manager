@@ -304,34 +304,59 @@ def fetch_dividend_data(
         - DividendYield: 배당 수익률 (%)
         - Dividend: 주당 배당금 (원)
     """
-    import yfinance as yf
-
     rows = []
     for ticker in tickers:
-        try:
-            # 한국 주식: .KS(KOSPI) 또는 .KQ(KOSDAQ) 접미사
-            yf_ticker = yf.Ticker(f"{ticker}.KS")
-            info = yf_ticker.info
+        div_yield, div_amount = _fetch_single_dividend(ticker)
+        rows.append({
+            "Code": ticker,
+            "DividendYield": div_yield,
+            "Dividend": div_amount,
+        })
 
+    return pd.DataFrame(rows)
+
+
+def _fetch_single_dividend(ticker: str) -> tuple[float, float]:
+    """단일 종목의 배당 정보를 가져온다. 여러 방법을 순차 시도.
+
+    Returns:
+        (배당수익률(%), 연간배당금(원))
+    """
+    import yfinance as yf
+
+    for suffix in [".KS", ".KQ"]:
+        try:
+            yf_ticker = yf.Ticker(f"{ticker}{suffix}")
+
+            # 방법 1: .info에서 직접 가져오기
+            info = yf_ticker.info or {}
             div_yield = info.get("dividendYield", 0) or 0
             div_rate = info.get("dividendRate", 0) or 0
 
-            # dividendYield가 없으면 .KQ로 재시도
-            if div_yield == 0 and div_rate == 0:
-                yf_ticker = yf.Ticker(f"{ticker}.KQ")
-                info = yf_ticker.info
-                div_yield = info.get("dividendYield", 0) or 0
-                div_rate = info.get("dividendRate", 0) or 0
+            if div_yield > 0 or div_rate > 0:
+                return float(div_yield), float(div_rate)
 
-            rows.append({
-                "Code": ticker,
-                "DividendYield": float(div_yield),
-                "Dividend": float(div_rate),
-            })
+            # 방법 2: 배당 히스토리에서 계산
+            dividends = yf_ticker.dividends
+            if dividends is not None and not dividends.empty:
+                # 최근 1년간 배당금 합산
+                dividends.index = dividends.index.tz_localize(None)
+                one_year_ago = pd.Timestamp.now() - pd.DateOffset(years=1)
+                recent = dividends[dividends.index >= one_year_ago]
+                annual_div = float(recent.sum()) if not recent.empty else float(dividends.tail(4).sum())
+
+                if annual_div > 0:
+                    # 현재 주가로 수익률 계산
+                    hist = yf_ticker.history(period="5d")
+                    if hist is not None and not hist.empty:
+                        price = float(hist["Close"].iloc[-1])
+                        if price > 0:
+                            return annual_div / price, annual_div
+
         except Exception:
-            rows.append({"Code": ticker, "DividendYield": 0.0, "Dividend": 0.0})
+            continue
 
-    return pd.DataFrame(rows)
+    return 0.0, 0.0
 
 
 def validate_tickers(tickers: tuple[str, ...]) -> tuple[bool, str]:
