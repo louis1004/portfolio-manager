@@ -48,31 +48,55 @@ def render_sidebar():
     # 시장 선택
     market = st.sidebar.selectbox("시장", MARKET_OPTIONS)
 
-    # 종목 리스트 로드
+    # 종목 리스트 로드 (전체 + 필터링)
     with st.spinner("종목 리스트 로딩 중..."):
         try:
+            all_stocks = fetch_stock_list(MARKET_OPTIONS[0])  # 전체 목록 (이름 매핑용)
             stock_list = fetch_stock_list(market)
         except Exception as e:
             st.sidebar.error(f"종목 리스트를 가져올 수 없습니다: {e}")
             return
 
-    # 종목 선택 (코드 - 이름 형식)
+    # 전체 종목의 코드 → 라벨 매핑
+    all_code_to_label = {
+        row["Code"]: f"{row['Name']} ({row['Code']})"
+        for _, row in all_stocks.iterrows()
+    }
+
+    # 현재 시장 옵션
     stock_options = {
         f"{row['Name']} ({row['Code']})": row["Code"]
         for _, row in stock_list.iterrows()
     }
+
+    # 이전에 선택한 종목 중 현재 옵션에 없는 것도 포함
+    prev_selected = st.session_state.get("selected_labels", [])
+    prev_still_valid = [label for label in prev_selected if label in all_code_to_label.values()]
+    options_with_prev = list(stock_options.keys())
+    for label in prev_still_valid:
+        if label not in options_with_prev:
+            options_with_prev.append(label)
+
+    # 기본값: 이전 선택 중 현재 옵션에 포함된 것
+    default_labels = [label for label in prev_still_valid if label in options_with_prev]
+
     selected_labels = st.sidebar.multiselect(
         "종목 선택 (2~20개)",
-        options=list(stock_options.keys()),
-        default=[],
+        options=options_with_prev,
+        default=default_labels,
         max_selections=20,
+        key="selected_labels",
     )
-    selected_tickers = tuple(stock_options[label] for label in selected_labels)
+
+    # 라벨 → 코드 변환 (전체 목록에서)
+    label_to_code = {v: k for k, v in all_code_to_label.items()}
+    selected_tickers = tuple(label_to_code[label] for label in selected_labels if label in label_to_code)
 
     # 종목명 매핑 저장
     ticker_name_map = {
-        row["Code"]: row["Name"]
-        for _, row in stock_list[stock_list["Code"].isin(selected_tickers)].iterrows()
+        code: label.rsplit(" (", 1)[0]
+        for label, code in label_to_code.items()
+        if code in selected_tickers
     }
 
     # 기간 설정 (년/월 선택)
